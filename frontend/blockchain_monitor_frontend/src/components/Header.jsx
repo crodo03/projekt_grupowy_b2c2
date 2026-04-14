@@ -19,22 +19,18 @@ export function Header() {
       backgroundColor: 'var(--mantine-color-body)',
     }}>
       
-      {/* LEWA STRONA: LOGO */}
       <Group component={Link} to="/" style={{ textDecoration: 'none', color: 'inherit' }}>
         <Image 
-          src="/logo.png" 
+          src="ep07.png"
           h={40} 
           fallbackSrc="https://placehold.co/40x40?text=BC"
         />
-        <Text size="xl" fw={700} variant="gradient" gradient={{ from: 'blue', to: 'cyan' }}>
-          BC Monitor
-        </Text>
+
       </Group>
 
-      {/* PRAWA STRONA: AKCJE */}
+      {/* akcje */}
       <Group gap="md"> 
         
-        {/* PRZEŁĄCZNIK MOTYWU */}
         <ActionIcon 
           onClick={toggleColorScheme} 
           variant="default" 
@@ -44,13 +40,12 @@ export function Header() {
           {computedColorScheme === 'dark' ? <IconSun size={18} /> : <IconMoon size={18} />}
         </ActionIcon>
 
-        {/* PROSTY PRZYCISK BEZ PRZYPISANIA */}
         <Button 
           variant="filled" 
           color="blue"
           leftSection={<IconUser size={18} />}
         >
-          Zaloguj
+          funkcja
         </Button>
 
       </Group>

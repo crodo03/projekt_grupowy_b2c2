@@ -14,8 +14,8 @@ function App() {
       <Routes>
 
         <Route element={<PublicLayout/>}>
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/home" element={<Home />} />
+          <Route path="/" element={<Dashboard/>} />
+          <Route path="/home" element={<Home/>} />
         </Route>
 
           <Route path="*" element={<NotFound/>} />
