@@ -10,7 +10,8 @@ public class NodeConfig {
     public void setNetworkUrlFromProperties() {
         try {
             Properties properties = new Properties();
-            properties.load(new FileInputStream("local.properties"));
+            String repositoryRootPath = "backend/blockchain_monitor/local.properties";
+            properties.load(new FileInputStream(repositoryRootPath));
             this.networkUrl = properties.getProperty("infura.url");
         } catch(IOException e) {
             throw new RuntimeException();
