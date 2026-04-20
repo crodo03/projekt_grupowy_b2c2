@@ -1,20 +1,26 @@
 package access;
 
-import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.Properties;
 
 public class NodeConfig {
-    private String networkUrl;
+    private final String networkUrl;
 
-    public void setNetworkUrlFromProperties() {
-        try {
-            Properties properties = new Properties();
-            String repositoryRootPath = "backend/blockchain_monitor/local.properties";
-            properties.load(new FileInputStream(repositoryRootPath));
-            this.networkUrl = properties.getProperty("infura.url");
+    public NodeConfig() {
+        Properties properties = new Properties();
+        try(InputStream inputStream = getClass()
+                .getClassLoader()
+                .getResourceAsStream("local.properties")) {
+
+            if(inputStream == null) {
+                throw new RuntimeException("file not found");
+            }
+
+            properties.load(inputStream);
+            networkUrl = properties.getProperty("infura.url");
         } catch(IOException e) {
-            throw new RuntimeException();
+            throw new RuntimeException(e);
         }
     }
 

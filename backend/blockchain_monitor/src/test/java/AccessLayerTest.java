@@ -15,15 +15,15 @@ public class AccessLayerTest {
     @Test
     public void shouldConnectToSepolia() throws IOException {
         NodeConfig config = new NodeConfig();
-        config.setNetworkUrlFromProperties();
-        BlockchainClient client = new BlockchainClient(config);
-        Web3j web3jClient = client.getWeb3j();
+        try(BlockchainClient client = new BlockchainClient(config)) {
+            Web3j web3j = client.getWeb3j();
 
-        EthBlockNumber blockNumber = web3jClient.ethBlockNumber().send();
-        EthChainId chainId = web3jClient.ethChainId().send();
+            EthBlockNumber blockNumber = web3j.ethBlockNumber().send();
+            EthChainId chainId = web3j.ethChainId().send();
 
-        assertNotNull(blockNumber.getBlockNumber());
-        assertTrue(blockNumber.getBlockNumber().compareTo(BigInteger.ZERO) > 0);
-        assertEquals(new BigInteger("11155111"), chainId.getChainId());
+            assertNotNull(blockNumber.getBlockNumber());
+            assertTrue(blockNumber.getBlockNumber().compareTo(BigInteger.ZERO) > 0);
+            assertEquals(new BigInteger("11155111"), chainId.getChainId());
+        }
     }
 }
