@@ -15,6 +15,7 @@ dependencies {
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
     // Source: https://mvnrepository.com/artifact/org.web3j/core
     implementation("org.web3j:core:5.0.2")
+    testImplementation("org.mockito:mockito-core:5.+")
 }
 
 tasks.test {
