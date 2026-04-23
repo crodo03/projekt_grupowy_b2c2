@@ -27,7 +27,7 @@ public class TransactionAnalyzer {
                     from: %s
                     value: %s
                     gas: %s
-                    %n""", hash, to, from, value, gas);
+                    \n""", hash, to, from, value, gas);
         });
     }
 

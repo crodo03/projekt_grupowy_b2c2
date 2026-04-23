@@ -10,9 +10,10 @@ class App {
 
         try(BlockchainClient client = new BlockchainClient(config)) {
             BlockAnalyzer blockAnalyzer = new BlockAnalyzer(client.getWeb3j());
-            blockAnalyzer.getLatestBlocksInfo(5);
+            blockAnalyzer.getLatestBlocksInfo(1);
+            blockAnalyzer.getFailedBlocksNumbers();
 
-            EthBlock.Block block = blockAnalyzer.getBlocks().get(1);
+            EthBlock.Block block = blockAnalyzer.getBlocks().getFirst();
             TransactionAnalyzer transactionAnalyzer = new TransactionAnalyzer(block);
             transactionAnalyzer.getTransactionInfo();
         }
