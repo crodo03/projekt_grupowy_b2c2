@@ -23,17 +23,6 @@ public class BlockAnalyzer {
         this.web3j = web3j;
     }
 
-    public BlockResponse getAnotherBlock(BigInteger blockNumber) {
-        BlockResponse blockResponse = null;
-        try {
-            blockResponse = getBlockResponseObject(blockNumber);
-        } catch(IOException e) {
-            System.out.println("skipping block " + blockNumber + " | " + e.getMessage());
-            failedBlockNumbers.add(blockNumber);
-        }
-        return blockResponse;
-    }
-
     public BigInteger getLatestBlockNumber() {
         BigInteger latest;
         try {
@@ -46,33 +35,34 @@ public class BlockAnalyzer {
     }
 
     public void getLatestBlocks(int numberOfBlocks) {
-        BigInteger latest;
-        try {
-            EthBlockNumber blockNumberResponse = web3j.ethBlockNumber().send();
-            latest = blockNumberResponse.getBlockNumber();
-        } catch(IOException e) {
-            throw new GetBlockException(e);
-        }
+        BigInteger latest = getLatestBlockNumber();
 
         blocks = new ArrayList<>(numberOfBlocks);
 
         for(int i = 0; i < numberOfBlocks; i++) {
             BigInteger current = latest.subtract(BigInteger.valueOf(i));
-            try {
-                blocks.add(getBlockResponseObject(current));
-            } catch(IOException e) {
-                System.out.println("skipping block " + current + " | " + e.getMessage());
-                failedBlockNumbers.add(current);
-                // throw new GetBlockException(current, e);
-            }
+            blocks.add(getBlockResponseObject(current));
         }
     }
 
-    public BlockResponse getBlockResponseObject(BigInteger blockNumber) throws IOException {
-        EthBlock.Block block = web3j.ethGetBlockByNumber(
-                DefaultBlockParameter.valueOf(blockNumber),
-                true // include transactions
+    public EthBlock.Block getBlock(BigInteger blockNumber) throws IOException {
+        return web3j.ethGetBlockByNumber(
+                        DefaultBlockParameter.valueOf(blockNumber), true
         ).send().getBlock();
+    }
+
+    public BlockResponse getBlockResponseObject(BigInteger blockNumber)  {
+        EthBlock.Block block;
+        try {
+            block = web3j.ethGetBlockByNumber(
+                    DefaultBlockParameter.valueOf(blockNumber),
+                    true
+            ).send().getBlock();
+        } catch(IOException e) {
+            System.out.println("skipping block " + blockNumber + " | " + e.getMessage());
+            failedBlockNumbers.add(blockNumber);
+            return null;
+        }
 
         return BlockResponse.builder()
                 .numberOfTransactions(block.getTransactions().size())
@@ -81,7 +71,7 @@ public class BlockAnalyzer {
                 .build();
     }
 
-    public void getFailedBlocksNumbers() {
+    public void printFailedBlockNumbers() {
         if(failedBlockNumbers.isEmpty()) {
             System.out.println("no failed blocks");
             return;

@@ -1,18 +1,21 @@
 package service;
 
+import network.dto.BlockTransactionInfo;
 import org.web3j.protocol.core.methods.response.EthBlock;
 
 import java.math.BigInteger;
+import java.util.ArrayList;
 import java.util.List;
 
 public class TransactionAnalyzer {
     private final EthBlock.Block block;
+    private final List<BlockTransactionInfo> transactionInfoList = new ArrayList<>();
 
     public TransactionAnalyzer(EthBlock.Block block) {
         this.block = block;
     }
 
-    public void getTransactionInfo() {
+    public List<BlockTransactionInfo> getTransactionInfo() {
         block.getTransactions().forEach(transaction -> {
             var transactionObject = (EthBlock.TransactionObject) transaction.get();
             String hash = transactionObject.getHash();
@@ -21,14 +24,15 @@ public class TransactionAnalyzer {
             BigInteger value = transactionObject.getValue();
             BigInteger gas = transactionObject.getGas();
 
-            System.out.printf("""
-                    hash: %s
-                    to: %s
-                    from: %s
-                    value: %s
-                    gas: %s
-                    \n""", hash, to, from, value, gas);
+            transactionInfoList.add(new BlockTransactionInfo(
+                    hash,
+                    to,
+                    from,
+                    value,
+                    gas
+            ));
         });
+        return transactionInfoList;
     }
 
     private BigInteger sumWithdrawals(List<EthBlock.Withdrawal> withdrawals) {
