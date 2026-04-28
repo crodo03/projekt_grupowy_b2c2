@@ -7,9 +7,8 @@ function PublicLayout() {
   //const { isAdmin } = useAuth();
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', width: '100vw' }}>
-      <Header />
+      
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-        <Navbar />
         <main style={{ flex: 1, overflowY: 'auto' }}>
           <Outlet />
         </main>

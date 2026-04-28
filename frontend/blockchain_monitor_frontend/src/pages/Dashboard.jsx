@@ -1,82 +1,124 @@
-import { SimpleGrid, Card, Text, Group, AspectRatio, UnstyledButton, rem, Container } from '@mantine/core';
+import { Grid, Paper, Text, Box, ScrollArea, Code } from '@mantine/core';
 import { 
   IconBox, 
   IconArrowsLeftRight, 
   IconGasStation, 
   IconChartBar, 
-  IconHistory, 
-  IconSettings, 
   IconFileText, 
-  IconDatabase 
+  IconTerminal 
 } from '@tabler/icons-react';
-import { Link } from 'react-router-dom';
+import { useEffect, useState, useRef } from 'react';
 
-
-const mockData = [
-  { title: 'Najnowsze Bloki', icon: IconBox, color: 'blue', link: '/blocks' },
-  { title: 'Transakcje', icon: IconArrowsLeftRight, color: 'green', link: '/transactions' },
-  { title: 'Zużycie Gasu', icon: IconGasStation, color: 'orange', link: '/gas' },
-  { title: 'Statystyki Sieci', icon: IconChartBar, color: 'violet', link: '/stats' },
-  { title: 'Historia Monitoringu', icon: IconHistory, color: 'cyan', link: '/history' },
-  { title: 'Raporty PDF/CSV', icon: IconFileText, color: 'red', link: '/reports' },
-  { title: 'Baza Danych', icon: IconDatabase, color: 'indigo', link: '/database' },
-  { title: 'Konfiguracja API', icon: IconSettings, color: 'gray', link: '/settings' },
+const smallItems = [
+  { title: 'Najnowsze Bloki', icon: IconBox, color: 'blue' },
+  { title: 'Transakcje', icon: IconArrowsLeftRight, color: 'green' },
+  { title: 'Zużycie Gasu', icon: IconGasStation, color: 'orange' },
+  { title: 'Raporty PDF/CSV', icon: IconFileText, color: 'red' },
 ];
 
-export function dashboard() {
-  const items = mockData.map((item) => (
-    <AspectRatio ratio={1} key={item.title}>
-      <Card
-      withBorder
-      radius="0"
-      padding="xl"
-      //component={link}
-      //to={Dashboard}
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        trasistion: 'transform 150ms ease, box-shadow ms ease',
-        cursor: 'pointer',
-        borderCollapse: 'collapse'
-      }}
-      onMouseEnter={(e) => {
-        e.currentTarget.style.transform = 'scale(1.02)';
-        e.currentTarget.style.boxShadow = 'var(--manite-shadow-md)';
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.transform = 'scale(1)';
-        e.currentTarget.style.boxShadow = 'none';
-      }}
-      >
-        <item.icon
-          style = {{width: rem(45), height: rem(45)}}
-          color={'var(--manite-color-${item.color}-6)'}
-          />
-          <Text size = "lg" fw={600} mt="md" textAlign="center">
-            {item.title}
-          </Text>
+export function Dashboard() {
+  const [logs, setLogs] = useState([]);
+  const viewportRef = useRef(null);
 
-          <Text size="xs" c="dimmed" mt={5}>
-            otworz zakladke
-          </Text>
-        </Card>
-      </AspectRatio>
-  ))
+  useEffect(() => {
+    const source = new EventSource("http://localhost:8080");
+
+    source.addEventListener('block', (e) => {
+      const block = JSON.parse(e.data);
+
+      const time = new Date().toLocaleTimeString();
+      const newLog = `[${time}] BLOK #${block.blockNumber} | TXs: ${block.numberOfTransactions} | Hash: ${block.blockHash.substring(0, 12)}...`;
+
+      setLogs((prevLogs) => [...prevLogs.slice(-100), newLog]);
+    });
+
+    source.addEventListener('done', (e) => {
+      setLogs((prevLogs) => [...prevLogs, `[SYSTEM] Proces zakończony. Czas: ${e.data}s`]);
+      source.close();
+    });
+
+    source.onerror = (err) => {
+      console.error("Błąd połączenia SSE:", err);
+      source.close();
+    };
+
+    return () => {
+      source.close();
+    };
+  }, []);
+
+
+  useEffect(() => {
+    if (viewportRef.current) {
+      viewportRef.current.scrollTo({ top: viewportRef.current.scrollHeight, behavior: 'smooth' });
+    }
+  }, [logs]);
 
   return (
-    <Container fluid size="lg" py="xl">
-      <SimpleGrid cols={{base: 1, sm: 2, md: 4}} spacing="0">
-        {items}
-      </SimpleGrid>
+    <Box style={{ height: '100vh', backgroundColor: 'var(--mantine-color-black-1)' }}>
+      <Grid gutter={0} style={{ margin: 0 }}>
+        
+        <Grid.Col span={{ base: 12, md: 4 }}>
+          <Paper
+            withBorder
+            radius={0}
+            p="md"
+            style={{
+              height: '100vh',
+              display: 'flex',
+              flexDirection: 'column',
+              backgroundColor: 'var(--mantine-color-body)',
+              borderRight: '1px solid var(--mantine-color-gray-3)'
+            }}
+          >
+            <Box style={{ display: 'flex', alignItems: 'center', marginBottom: '15px' }}>
+              <IconTerminal size="1.2rem" style={{ marginRight: '10px' }} />
+              <Text fw={700} size="sm">TERMINAL OPERACYJNY</Text>
+            </Box>
+            
+            <ScrollArea 
+              viewportRef={viewportRef}
+              scrollbarSize={6} 
+              style={{ flex: 1, backgroundColor: '#1A1B1E', borderRadius: '4px', padding: '12px' }}
+            >
+              <Code block style={{ backgroundColor: 'transparent', color: '#40C057', fontSize: '11px', lineHeight: 1.6 }}>
+                {logs.length > 0 ? logs.join('\n') : "[SYSTEM] Oczekiwanie na dane..."}
+              </Code>
+            </ScrollArea>
+          </Paper>
+        </Grid.Col>
 
-    </Container>
-  )
 
-
-
-
+        <Grid.Col span={{ base: 12, md: 8 }}>
+          <Grid gutter={0}>
+            {smallItems.map((item) => (
+              <Grid.Col span={{ base: 12, sm: 6 }} key={item.title}>
+                <Paper
+                  withBorder
+                  radius={0}
+                  p="xl"
+                  style={{
+                    height: '50vh',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    backgroundColor: 'var(--mantine-color-body)',
+                    borderBottom: '1px solid var(--mantine-color-gray-3)',
+                    borderRight: '1px solid var(--mantine-color-gray-3)',
+                  }}
+                >
+                  <item.icon size="2.5rem" color={`var(--mantine-color-${item.color}-6)`} stroke={1.5} />
+                  <Text fw={600} mt="md" size="sm">{item.title}</Text>
+                  <Text size="xs" c="dimmed">POŁĄCZONO</Text>
+                </Paper>
+              </Grid.Col>
+            ))}
+          </Grid>
+        </Grid.Col>
+      </Grid>
+    </Box>
+  );
 }
 
-export default dashboard
+export default Dashboard;
