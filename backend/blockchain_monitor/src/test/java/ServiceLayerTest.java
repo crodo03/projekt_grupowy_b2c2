@@ -30,7 +30,7 @@ public class ServiceLayerTest {
         try(BlockchainClient client = new BlockchainClient(config)) {
             client.setWeb3j(web3j); // injecting mocked client
             assertThrows(GetBlockException.class,
-                    () -> new BlockAnalyzer(client.getWeb3j()).getLatestBlocksInfo(2)
+                    () -> new BlockAnalyzer(client.getWeb3j()).getLatestBlocks(2)
             );
         }
     }

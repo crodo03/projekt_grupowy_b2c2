@@ -20,7 +20,7 @@ public class BlockchainClient implements AutoCloseable {
 
     @Override
     public void close() {
-        System.out.println("shutting down");
+        System.out.println("shutting down web3j");
         web3j.shutdown();
     }
 }
