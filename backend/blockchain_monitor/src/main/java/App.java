@@ -33,9 +33,15 @@ class App {
 //            transactionAnalyzer.getTransactionInfo();
 //            ExecutorService executor = Executors.newFixedThreadPool(10);
 
+            // cors
             Javalin.create(javalinConfig -> {
-                javalinConfig.routes.get("/", context -> {
-                    SseClient sseClient = new SseClient(context);
+                javalinConfig.bundledPlugins.enableCors(cors -> {
+                    cors.addRule(it -> {
+                        it.reflectClientOrigin = true;
+                    });
+                });
+
+                javalinConfig.routes.sse("/sse", sseClient -> {
                     sseClient.keepAlive();
 
                     Set<BigInteger> sentBlocks = ConcurrentHashMap.newKeySet();
