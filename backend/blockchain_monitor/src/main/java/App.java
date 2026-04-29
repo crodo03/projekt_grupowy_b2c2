@@ -2,6 +2,7 @@ import access.BlockchainClient;
 import access.NodeConfig;
 import io.javalin.Javalin;
 import io.javalin.http.sse.SseClient;
+import lombok.extern.slf4j.Slf4j;
 import network.dto.BlockResponse;
 import network.dto.BlockTransactionInfo;
 import org.web3j.protocol.core.methods.response.EthBlock;
@@ -16,7 +17,10 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
+@Slf4j
 class App {
     public static void main(String[] args) {
         NodeConfig config = new NodeConfig();
@@ -31,10 +35,12 @@ class App {
 //            List<BlockResponse> response = blockAnalyzer.getBlocks();
 //            TransactionAnalyzer transactionAnalyzer = new TransactionAnalyzer(block);
 //            transactionAnalyzer.getTransactionInfo();
-//            ExecutorService executor = Executors.newFixedThreadPool(10);
+            ExecutorService executor = Executors.newFixedThreadPool(10);
 
+            // TODO: PUT THIS IN SEPARATE PACKAGES, CREATE CONTROLLER
             Javalin.create(javalinConfig -> {
                 javalinConfig.routes.get("/", context -> {
+                    // TODO: CLOSE SSE CLIENT
                     SseClient sseClient = new SseClient(context);
                     sseClient.keepAlive();
 
@@ -44,11 +50,12 @@ class App {
 
                     Instant start = Instant.now();
                     // TODO: FREEZES ON LOW NUMBERS LIKE 5. CHECK
+                    // TODO: REPLACE FOR LOOP FOR GET LATEST BLOCKS METHOD
                     for(int i = 0; i < 10; i++) {
                         BigInteger finalBlockNumber = blockNumber;
 
                         CompletableFuture<BlockResponse> future = CompletableFuture
-                                .supplyAsync(() -> blockAnalyzer.getBlockResponseObject(finalBlockNumber))
+                                .supplyAsync(() -> blockAnalyzer.getBlockResponseObject(finalBlockNumber), executor)
                                 .thenApply(block -> {
                                     if(sentBlocks.add(block.getBlockNumber())) {
                                         sseClient.sendEvent("block", block);
@@ -65,7 +72,8 @@ class App {
                                 sseClient.sendEvent("done", "done in " + timeElapsed + "seconds");
                             })
                             .exceptionally(e -> {
-                                System.out.println(e.getMessage());
+                                log.error(e.getMessage());
+                                sseClient.close();
                                 return null;
                             });
                 });

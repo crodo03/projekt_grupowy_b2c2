@@ -45,13 +45,7 @@ public class BlockAnalyzer {
         }
     }
 
-    public EthBlock.Block getBlock(BigInteger blockNumber) throws IOException {
-        return web3j.ethGetBlockByNumber(
-                        DefaultBlockParameter.valueOf(blockNumber), true
-        ).send().getBlock();
-    }
-
-    public BlockResponse getBlockResponseObject(BigInteger blockNumber)  {
+    public EthBlock.Block getBlock(BigInteger blockNumber) {
         EthBlock.Block block;
         try {
             block = web3j.ethGetBlockByNumber(
@@ -63,19 +57,16 @@ public class BlockAnalyzer {
             failedBlockNumbers.add(blockNumber);
             return null;
         }
+        return block;
+    }
+
+    public BlockResponse getBlockResponseObject(BigInteger blockNumber)  {
+        EthBlock.Block block = getBlock(blockNumber);
 
         return BlockResponse.builder()
                 .numberOfTransactions(block.getTransactions().size())
                 .blockHash(block.getHash())
                 .blockNumber(block.getNumber())
                 .build();
-    }
-
-    public void printFailedBlockNumbers() {
-        if(failedBlockNumbers.isEmpty()) {
-            System.out.println("no failed blocks");
-            return;
-        }
-        failedBlockNumbers.forEach(System.out::println);
     }
 }
