@@ -44,6 +44,7 @@ class App {
                 javalinConfig.routes.sse("/sse", sseClient -> {
                     sseClient.keepAlive();
 
+                    
                     Set<BigInteger> sentBlocks = ConcurrentHashMap.newKeySet();
                     List<CompletableFuture<BlockResponse>> futures = new ArrayList<>();
                     BigInteger blockNumber = blockAnalyzer.getLatestBlockNumber();
