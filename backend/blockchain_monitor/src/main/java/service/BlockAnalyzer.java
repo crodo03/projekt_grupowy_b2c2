@@ -41,6 +41,7 @@ public class BlockAnalyzer {
 
         for(int i = 0; i < numberOfBlocks; i++) {
             BigInteger current = latest.subtract(BigInteger.valueOf(i));
+            // TODO: WHEN GET BLOCK METHOD FAILS, FETCHES DIFFERENT NUMBER OF BLOCKS
             blocks.add(getBlockResponseObject(current));
         }
     }

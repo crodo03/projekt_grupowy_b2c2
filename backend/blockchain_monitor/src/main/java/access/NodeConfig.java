@@ -1,11 +1,13 @@
 package access;
 
 import exceptions.NodeConfigException;
+import lombok.Getter;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Properties;
 
+@Getter
 public class NodeConfig {
     private String networkUrl;
     private final String propertiesPath;
@@ -40,9 +42,5 @@ public class NodeConfig {
         } catch(IOException e) {
             throw new NodeConfigException("failed to load properties file: " + propertiesPath, e);
         }
-    }
-
-    public String getNetworkUrl() {
-        return networkUrl;
     }
 }

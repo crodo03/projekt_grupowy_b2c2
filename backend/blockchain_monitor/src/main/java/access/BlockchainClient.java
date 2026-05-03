@@ -1,21 +1,17 @@
 package access;
 
+import lombok.Getter;
+import lombok.Setter;
 import org.web3j.protocol.Web3j;
 import org.web3j.protocol.http.HttpService;
 
+@Getter
+@Setter
 public class BlockchainClient implements AutoCloseable {
     private Web3j web3j;
 
     public BlockchainClient(NodeConfig config) {
         web3j = Web3j.build(new HttpService(config.getNetworkUrl()));
-    }
-
-    public Web3j getWeb3j() {
-        return web3j;
-    }
-
-    public void setWeb3j(Web3j web3j) {
-        this.web3j = web3j;
     }
 
     @Override
