@@ -1,6 +1,6 @@
 import { Outlet } from "react-router-dom"
 import { Header } from '/src/components/Header'
-import { Navbar } from "../components/navbar";
+// import { Navbar } from "../components/navbar";
 //import { useAuth } from '../context/AuthContext';
 
 function PublicLayout() {
