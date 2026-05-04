@@ -75,13 +75,18 @@ public class RestController {
     }
 
     public void getBlockInfo(Context context) {
-        BigInteger blockNumber = null;
+        BigInteger blockNumber;
         try {
             blockNumber = new BigInteger(context.pathParam("block-number"));
         } catch(NumberFormatException e) {
             context.json("error").status(404);
+            return;
         }
         EthBlock.Block block = blockAnalyzer.getBlock(blockNumber);
+        if(block == null) {
+            context.json("error").status(404);
+            return;
+        }
         TransactionAnalyzer transactionAnalyzer = new TransactionAnalyzer(block);
         List<BlockTransactionInfo> transactionInfoList = transactionAnalyzer.getTransactionInfo();
         context.json(transactionInfoList).status(200);
