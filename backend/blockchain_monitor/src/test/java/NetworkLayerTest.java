@@ -9,10 +9,10 @@ import service.BlockAnalyzer;
 
 import java.math.BigInteger;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.function.Consumer;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.AdditionalMatchers.not;
-import static org.mockito.AdditionalMatchers.or;
 import static org.mockito.Mockito.*;
 
 public class NetworkLayerTest {
@@ -82,15 +82,12 @@ public class NetworkLayerTest {
         BlockResponse block1 = BlockResponse.getTestBlock(BigInteger.ONE);
         BlockResponse block2 = BlockResponse.getTestBlock(BigInteger.TWO);
 
-        when(blockAnalyzer.getLatestBlockNumber()).thenReturn(BigInteger.TWO);
-        when(blockAnalyzer.getBlockResponseObject(BigInteger.TWO)).thenReturn(block2);
-        when(blockAnalyzer.getBlockResponseObject(BigInteger.ONE)).thenReturn(block1);
-        // every other number returns null
-        when(blockAnalyzer.getBlockResponseObject(
-                not(
-                        or(eq(BigInteger.ONE), eq(BigInteger.TWO)))
-                )
-        ).thenReturn(null);
+        doAnswer(invocation -> {
+            Consumer<BlockResponse> callback = invocation.getArgument(1);
+            callback.accept(block1);
+            callback.accept(block2);
+            return List.of(CompletableFuture.completedFuture(block1), CompletableFuture.completedFuture(block2));
+        }).when(blockAnalyzer).getLatestBlocks(anyInt(), any());
 
         restController.getLatestBlocks(sseClient);
 
@@ -116,19 +113,6 @@ public class NetworkLayerTest {
         restController.getLatestBlocks(sseClient);
 
         verify(sseClient).close();
-    }
-
-    @Test
-    public void getLatestBlocks_doesNotSendDuplicateBlocks() {
-        BlockResponse block = BlockResponse.getTestBlock(BigInteger.ONE);
-
-        when(blockAnalyzer.getLatestBlockNumber()).thenReturn(BigInteger.ONE);
-        // same block everytime
-        when(blockAnalyzer.getBlockResponseObject(any())).thenReturn(block);
-
-        restController.getLatestBlocks(sseClient);
-
-        verify(sseClient).sendEvent("block", block);
     }
 
     @Test

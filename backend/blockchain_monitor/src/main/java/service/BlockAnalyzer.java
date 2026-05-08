@@ -2,6 +2,7 @@ package service;
 
 import exceptions.GetBlockException;
 import lombok.Getter;
+import lombok.extern.slf4j.Slf4j;
 import network.dto.BlockResponse;
 import org.web3j.protocol.Web3j;
 import org.web3j.protocol.core.DefaultBlockParameter;
@@ -12,8 +13,15 @@ import java.io.IOException;
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.function.Consumer;
 
 @Getter
+@Slf4j
 public class BlockAnalyzer {
     private final Web3j web3j;
     private List<BlockResponse> blocks;
@@ -34,16 +42,39 @@ public class BlockAnalyzer {
         return latest;
     }
 
-    public void getLatestBlocks(int numberOfBlocks) {
-        BigInteger latest = getLatestBlockNumber();
-
+    public List<CompletableFuture<BlockResponse>> getLatestBlocks(int numberOfBlocks, Consumer<BlockResponse> onBlockReady) {
+        ExecutorService executor = Executors.newFixedThreadPool(10);
+        Set<BigInteger> sentBlocks = ConcurrentHashMap.newKeySet();
+        List<CompletableFuture<BlockResponse>> futures = new ArrayList<>();
+        BigInteger blockNumber = getLatestBlockNumber();
         blocks = new ArrayList<>(numberOfBlocks);
 
+        // TODO: FREEZES ON LOW NUMBERS LIKE 5. CHECK
         for(int i = 0; i < numberOfBlocks; i++) {
-            BigInteger current = latest.subtract(BigInteger.valueOf(i));
-            // TODO: WHEN GET BLOCK METHOD FAILS, FETCHES DIFFERENT NUMBER OF BLOCKS
-            blocks.add(getBlockResponseObject(current));
+            BigInteger finalBlockNumber = blockNumber;
+
+            CompletableFuture<BlockResponse> future = CompletableFuture
+                    // TODO: WHEN GET BLOCK METHOD FAILS, FETCHES DIFFERENT NUMBER OF BLOCKS
+                    .supplyAsync(() -> getBlockResponseObject(finalBlockNumber), executor)
+                    .thenApply(block -> {
+                        if(block == null) {
+                            log.error("block is null, skipping");
+                            return null;
+                        }
+                        if(sentBlocks.add(block.getBlockNumber())) {
+                            onBlockReady.accept(block);
+                        }
+                        return block;
+                    })
+                    .exceptionally(e -> {
+                        log.error("future failed: {}", e.getMessage());
+                        return null;
+                    });
+
+            futures.add(future);
+            blockNumber = blockNumber.subtract(BigInteger.valueOf(1));
         }
+        return futures;
     }
 
     public EthBlock.Block getBlock(BigInteger blockNumber) {
