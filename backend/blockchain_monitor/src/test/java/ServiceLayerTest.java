@@ -2,6 +2,7 @@ import access.BlockchainClient;
 import access.NodeConfig;
 import exceptions.GetBlockException;
 import network.dto.BlockResponse;
+import network.dto.BlockTransactionInfo;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.web3j.protocol.Web3j;
@@ -10,6 +11,7 @@ import org.web3j.protocol.core.Request;
 import org.web3j.protocol.core.methods.response.EthBlock;
 import org.web3j.protocol.core.methods.response.EthBlockNumber;
 import service.BlockAnalyzer;
+import service.TransactionAnalyzer;
 
 import java.io.IOException;
 import java.math.BigInteger;
@@ -27,8 +29,9 @@ public class ServiceLayerTest {
     private EthBlockNumber mockEthBlockNumber = null;
     private Request<?, EthBlockNumber> mockRequest = null;
     private EthBlock mockEthBlock = null;
-    private EthBlock.Block mockBlock = null;
+    private EthBlock.Block mockBlockBlock = null;
     private BlockAnalyzer blockAnalyzer = null;
+    private TransactionAnalyzer transactionAnalyzer = null;
 
     @BeforeEach
     @SuppressWarnings("unchecked")
@@ -37,8 +40,9 @@ public class ServiceLayerTest {
         mockEthBlockNumber = mock(EthBlockNumber.class);
         mockRequest = (Request<?, EthBlockNumber>) mock(Request.class);
         mockEthBlock = mock(EthBlock.class);
-        mockBlock = mock(EthBlock.Block.class);
+        mockBlockBlock = mock(EthBlock.Block.class);
         blockAnalyzer = new BlockAnalyzer(mockWeb3j);
+        transactionAnalyzer = new TransactionAnalyzer(mockBlockBlock);
     }
 
     @Test
@@ -86,12 +90,12 @@ public class ServiceLayerTest {
                 eq(true)
         );
         doReturn(mockEthBlock).when(mockRequest).send();
-        when(mockEthBlock.getBlock()).thenReturn(mockBlock);
+        when(mockEthBlock.getBlock()).thenReturn(mockBlockBlock);
 
         List<EthBlock.TransactionResult<?>> transactionResults = Collections.emptyList();
-        doReturn(transactionResults).when(mockBlock).getTransactions();
-        when(mockBlock.getHash()).thenReturn("0xHash");
-        when(mockBlock.getNumber()).thenReturn(BigInteger.TWO);
+        doReturn(transactionResults).when(mockBlockBlock).getTransactions();
+        when(mockBlockBlock.getHash()).thenReturn("0xHash");
+        when(mockBlockBlock.getNumber()).thenReturn(BigInteger.TWO);
 
         BlockAnalyzer blockAnalyzer = new BlockAnalyzer(mockWeb3j);
         BlockResponse result = blockAnalyzer.getBlockResponseObject(BigInteger.ONE);
@@ -119,8 +123,8 @@ public class ServiceLayerTest {
 
     @Test
     public void getLatestBlocks_doesNotSendDuplicateBlocks() throws IOException {
-        when(mockBlock.getNumber()).thenReturn(BigInteger.ONE);
-        when(mockEthBlock.getBlock()).thenReturn(mockBlock);
+        when(mockBlockBlock.getNumber()).thenReturn(BigInteger.ONE);
+        when(mockEthBlock.getBlock()).thenReturn(mockBlockBlock);
         when(mockWeb3j.ethGetBlockByNumber(any(), anyBoolean()).send()).thenReturn(mockEthBlock);
 
         List<BlockResponse> received = new ArrayList<>();
@@ -129,5 +133,38 @@ public class ServiceLayerTest {
         CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
 
         assertEquals(1, received.size());
+    }
+
+    @Test
+    public void getTransactionInfo_mapsTransactionFieldsCorrectly() {
+        var transactionObject = mock(EthBlock.TransactionObject.class);
+        when(transactionObject.getHash()).thenReturn("0xHash");
+        when(transactionObject.getTo()).thenReturn("0xTo");
+        when(transactionObject.getFrom()).thenReturn("0xFrom");
+        when(transactionObject.getValue()).thenReturn(BigInteger.ONE);
+        when(transactionObject.getGas()).thenReturn(BigInteger.TEN);
+
+        var transactionResult = mock(EthBlock.TransactionResult.class);
+        when(transactionResult.get()).thenReturn(transactionObject);
+
+        when(mockBlockBlock.getTransactions()).thenReturn(List.of(transactionResult));
+        List<BlockTransactionInfo> result = transactionAnalyzer.getTransactionInfo();
+        assertEquals(1, result.size());
+
+        BlockTransactionInfo info = result.getFirst();
+        assertAll(
+            () -> assertEquals("0xHash", info.getHash()),
+            () -> assertEquals("0xTo", info.getTo()),
+            () -> assertEquals("0xFrom", info.getFrom()),
+            () -> assertEquals(BigInteger.ONE, info.getValue()),
+            () -> assertEquals(BigInteger.TEN, info.getGas())
+        );
+    }
+
+    @Test
+    public void getTransactionInfo_emptyBlock_returnsEmptyList() {
+        when(mockBlockBlock.getTransactions()).thenReturn(Collections.emptyList());
+        List<BlockTransactionInfo> result = transactionAnalyzer.getTransactionInfo();
+        assertTrue(result.isEmpty());
     }
 }

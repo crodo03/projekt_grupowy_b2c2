@@ -24,7 +24,6 @@ import java.util.function.Consumer;
 @Slf4j
 public class BlockAnalyzer {
     private final Web3j web3j;
-    private List<BlockResponse> blocks;
     private final List<BigInteger> failedBlockNumbers = new ArrayList<>();
 
     public BlockAnalyzer(Web3j web3j) {
@@ -47,7 +46,6 @@ public class BlockAnalyzer {
         Set<BigInteger> sentBlocks = ConcurrentHashMap.newKeySet();
         List<CompletableFuture<BlockResponse>> futures = new ArrayList<>();
         BigInteger blockNumber = getLatestBlockNumber();
-        blocks = new ArrayList<>(numberOfBlocks);
 
         // TODO: FREEZES ON LOW NUMBERS LIKE 5. CHECK
         for(int i = 0; i < numberOfBlocks; i++) {
@@ -72,7 +70,7 @@ public class BlockAnalyzer {
                     });
 
             futures.add(future);
-            blockNumber = blockNumber.subtract(BigInteger.valueOf(1));
+            blockNumber = blockNumber.subtract(BigInteger.ONE);
         }
         return futures;
     }
