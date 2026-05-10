@@ -23,7 +23,7 @@ public class NetworkLayerTest {
     private Javalin app() {
         return Javalin.create(
                 config -> config.routes.get(
-                        "/block/{block-number}", restController::getBlockInfo
+                        "/block/{block-number}", restController::sendBlockInfo
                 )
         );
     }
@@ -89,7 +89,7 @@ public class NetworkLayerTest {
             return List.of(CompletableFuture.completedFuture(block1), CompletableFuture.completedFuture(block2));
         }).when(blockAnalyzer).getLatestBlocks(anyInt(), any());
 
-        restController.getLatestBlocks(sseClient);
+        restController.sendLatestBlocks(sseClient);
 
         verify(sseClient).sendEvent("block", block1);
         verify(sseClient).sendEvent("block", block2);
@@ -100,34 +100,35 @@ public class NetworkLayerTest {
         when(blockAnalyzer.getLatestBlockNumber()).thenReturn(BigInteger.ONE);
         when(blockAnalyzer.getBlockResponseObject(any())).thenReturn(null);
 
-        restController.getLatestBlocks(sseClient);
+        restController.sendLatestBlocks(sseClient);
 
         verify(sseClient).sendEvent(eq("done"), anyString());
     }
 
-    @Test
-    public void getLatestBlocks_closesSseClientWhenDone() {
-        when(blockAnalyzer.getLatestBlockNumber()).thenReturn(BigInteger.ONE);
-        when(blockAnalyzer.getBlockResponseObject(any())).thenReturn(null);
-
-        restController.getLatestBlocks(sseClient);
-
-        verify(sseClient).close();
-    }
+//    sse never closes, since polling latest blocks was implemented
+//    @Test
+//    public void getLatestBlocks_closesSseClientWhenDone() {
+//        when(blockAnalyzer.getLatestBlockNumber()).thenReturn(BigInteger.ONE);
+//        when(blockAnalyzer.getBlockResponseObject(any())).thenReturn(null);
+//
+//        restController.sendLatestBlocks(sseClient);
+//
+//        verify(sseClient).close();
+//    }
 
     @Test
     public void getLatestBlocks_nullBlockDoesNotSendBlockEvent() {
         when(blockAnalyzer.getLatestBlockNumber()).thenReturn(BigInteger.ONE);
         when(blockAnalyzer.getBlockResponseObject(any())).thenReturn(null);
 
-        restController.getLatestBlocks(sseClient);
+        restController.sendLatestBlocks(sseClient);
 
         // if null check is missing, null pointer exception is swallowed
         // but sentBlocks.add() never runs
         // either way we should never see a block event with null data
         verify(sseClient, never()).sendEvent(eq("block"), isNull());
         verify(sseClient, never()).sendEvent(eq("block"), any(BlockResponse.class));
-        verify(sseClient).close();
+//        verify(sseClient).close();
     }
 }
 

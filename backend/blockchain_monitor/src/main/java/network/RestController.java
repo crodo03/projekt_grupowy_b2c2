@@ -2,7 +2,9 @@ package network;
 
 import io.javalin.http.Context;
 import io.javalin.http.sse.SseClient;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import network.dto.BlockResponse;
 import network.dto.BlockTransactionInfo;
 import org.web3j.protocol.core.methods.response.EthBlock;
 import service.BlockAnalyzer;
@@ -13,16 +15,19 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 @Slf4j
+@RequiredArgsConstructor
 public class RestController {
     private final BlockAnalyzer blockAnalyzer;
+    private SseClient sseClient;
+    private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
 
-    public RestController(BlockAnalyzer blockAnalyzer) {
-        this.blockAnalyzer = blockAnalyzer;
-    }
-
-    public void getLatestBlocks(SseClient sseClient) {
+    public void sendLatestBlocks(SseClient sseClient) {
+        this.sseClient = sseClient;
         sseClient.keepAlive();
 
         Instant start = Instant.now();
@@ -35,7 +40,7 @@ public class RestController {
                 .thenRun(() -> {
                     double timeElapsed = (double) Duration.between(start, Instant.now()).toMillis() / 1000;
                     sseClient.sendEvent("done", "done in " + timeElapsed + "seconds");
-                    sseClient.close();
+                    scheduler.scheduleAtFixedRate(this::startPolling, 2, 2, TimeUnit.SECONDS);
                 })
                 .exceptionally(e -> {
                     System.out.println(e.getMessage());
@@ -44,7 +49,7 @@ public class RestController {
                 .join();
     }
 
-    public void getBlockInfo(Context context) {
+    public void sendBlockInfo(Context context) {
         BigInteger blockNumber;
         try {
             blockNumber = new BigInteger(context.pathParam("block-number"));
@@ -60,5 +65,25 @@ public class RestController {
         TransactionAnalyzer transactionAnalyzer = new TransactionAnalyzer(block);
         List<BlockTransactionInfo> transactionInfoList = transactionAnalyzer.getTransactionInfo();
         context.json(transactionInfoList).status(200);
+    }
+
+    public void startPolling() {
+        // not connected yet or never got any blocks
+        if(sseClient == null) {
+            log.info("sse client null");
+            return;
+        }
+
+        List<BlockResponse> newBlocks = blockAnalyzer.pollForNewBlocks();
+        if(!newBlocks.isEmpty()) {
+            sseClient.sendEvent("updated_blocks", newBlocks);
+        }
+    }
+
+    public void closeSSE() {
+        if (sseClient != null) {
+            sseClient.close();
+            sseClient = null;
+        }
     }
 }
