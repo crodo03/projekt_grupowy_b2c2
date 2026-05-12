@@ -13,4 +13,5 @@ public class BlockTransactionInfo {
     private String from;
     private BigInteger value;
     private BigInteger gas;
+    private BigInteger gasPrice;
 }

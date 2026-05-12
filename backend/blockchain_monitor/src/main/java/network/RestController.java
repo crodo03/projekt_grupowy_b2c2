@@ -5,7 +5,6 @@ import io.javalin.http.sse.SseClient;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import network.dto.BlockResponse;
-import network.dto.BlockTransactionInfo;
 import org.web3j.protocol.core.methods.response.EthBlock;
 import service.BlockAnalyzer;
 import service.TransactionAnalyzer;
@@ -63,8 +62,8 @@ public class RestController {
             return;
         }
         TransactionAnalyzer transactionAnalyzer = new TransactionAnalyzer(block);
-        List<BlockTransactionInfo> transactionInfoList = transactionAnalyzer.getTransactionInfo();
-        context.json(transactionInfoList).status(200);
+        var transactionInfoResult = transactionAnalyzer.getTransactionInfo();
+        context.json(transactionInfoResult).status(200);
     }
 
     public void startPolling() {

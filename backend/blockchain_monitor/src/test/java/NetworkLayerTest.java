@@ -105,7 +105,7 @@ public class NetworkLayerTest {
         verify(sseClient).sendEvent(eq("done"), anyString());
     }
 
-//    sse never closes, since polling latest blocks was implemented
+//    sse never closes since polling latest blocks was implemented
 //    @Test
 //    public void getLatestBlocks_closesSseClientWhenDone() {
 //        when(blockAnalyzer.getLatestBlockNumber()).thenReturn(BigInteger.ONE);

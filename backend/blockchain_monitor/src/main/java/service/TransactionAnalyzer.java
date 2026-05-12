@@ -1,6 +1,7 @@
 package service;
 
 import network.dto.BlockTransactionInfo;
+import network.dto.TransactionInfoResult;
 import org.web3j.protocol.core.methods.response.EthBlock;
 
 import java.math.BigInteger;
@@ -15,7 +16,8 @@ public class TransactionAnalyzer {
         this.block = block;
     }
 
-    public List<BlockTransactionInfo> getTransactionInfo() {
+    public TransactionInfoResult getTransactionInfo() {
+        List<BigInteger> gasPrices = new ArrayList<>();
         block.getTransactions().forEach(transaction -> {
             var transactionObject = (EthBlock.TransactionObject) transaction.get();
             String hash = transactionObject.getHash();
@@ -23,25 +25,28 @@ public class TransactionAnalyzer {
             String from = transactionObject.getFrom();
             BigInteger value = transactionObject.getValue();
             BigInteger gas = transactionObject.getGas();
+            BigInteger gasPrice = transactionObject.getGasPrice();
+            gasPrices.add(gasPrice);
 
             transactionInfoList.add(new BlockTransactionInfo(
                     hash,
                     to,
                     from,
                     value,
-                    gas
+                    gas,
+                    gasPrice
             ));
         });
-        return transactionInfoList;
+        BigInteger gasPricesMean = sumGasPrices(gasPrices).divide(BigInteger.valueOf(gasPrices.size()));
+        return new TransactionInfoResult(transactionInfoList, gasPricesMean);
     }
 
-    private BigInteger sumWithdrawals(List<EthBlock.Withdrawal> withdrawals) {
-        if(withdrawals == null) {
+    private BigInteger sumGasPrices(List<BigInteger> gasPrices) {
+        if(gasPrices == null) {
             return BigInteger.ZERO;
         }
-        return withdrawals
+        return gasPrices
                 .stream()
-                .map(EthBlock.Withdrawal::getAmount)
                 .reduce(
                         BigInteger.ZERO,
                         BigInteger::add
