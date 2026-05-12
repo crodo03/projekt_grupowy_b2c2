@@ -1,8 +1,8 @@
-import { Group, Button, ActionIcon, useMantineColorScheme, useComputedColorScheme, Image, Text } from '@mantine/core';
-import { IconSun, IconMoon, IconUser } from '@tabler/icons-react';
+import { Group, Button, ActionIcon, useMantineColorScheme, useComputedColorScheme, Image, Badge } from '@mantine/core';
+import { IconSun, IconMoon, IconRefresh } from '@tabler/icons-react';
 import { Link } from 'react-router-dom';
 
-export function Header() {
+export function Header({ hasNewBlock, setHasNewBlock }) {
   const { setColorScheme } = useMantineColorScheme();
   const computedColorScheme = useComputedColorScheme('light');
 
@@ -17,40 +17,37 @@ export function Header() {
       alignItems: 'center', 
       borderBottom: '1px solid var(--mantine-color-gray-3)',
       backgroundColor: 'var(--mantine-color-body)',
+      zIndex: 100
     }}>
       
       <Group component={Link} to="/" style={{ textDecoration: 'none', color: 'inherit' }}>
-        <Image 
-          src="ep07.png"
-          h={40} 
-          fallbackSrc="https://placehold.co/40x40?text=BC"
-        />
-
+        <Image src="ep07.png" h={40} fallbackSrc="https://placehold.co/40x40?text=BC" />
       </Group>
 
-      {/* akcje */}
       <Group gap="md"> 
-        
+        <Button 
+          variant={hasNewBlock ? "filled" : "light"}
+          color={hasNewBlock ? "green" : "gray"}
+          leftSection={hasNewBlock ? <IconRefresh size={18} /> : null}
+          disabled={!hasNewBlock}
+          onClick={() => setHasNewBlock(false)}
+          style={{ 
+            transition: 'all 0.3s ease',
+            opacity: hasNewBlock ? 1 : 0.5,
+            cursor: hasNewBlock ? 'pointer' : 'not-allowed'
+          }}
+        >
+          {hasNewBlock ? "Nowy blok dostępny!" : "System zsynchronizowany"}
+        </Button>
+
         <ActionIcon 
           onClick={toggleColorScheme} 
           variant="default" 
           size="lg" 
-          aria-label="Zmień motyw"
         >
           {computedColorScheme === 'dark' ? <IconSun size={18} /> : <IconMoon size={18} />}
         </ActionIcon>
-
-        <Button 
-          variant="filled" 
-          color="blue"
-          leftSection={<IconUser size={18} />}
-        >
-          funkcja
-        </Button>
-
       </Group>
     </header>
   );
 }
-
-export default Header;
