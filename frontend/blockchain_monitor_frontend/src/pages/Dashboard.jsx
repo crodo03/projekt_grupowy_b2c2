@@ -4,7 +4,6 @@ import {
 } from '@tabler/icons-react';
 import { useEffect, useState, useRef } from 'react';
 import { useOutletContext } from 'react-router-dom';
-// IMPORTY DO WYKRESU
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 const smallItems = [
@@ -15,10 +14,7 @@ export function Dashboard() {
   const [selectedBlock, setSelectedBlock] = useState(null);
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(false);
-  
-  // Stan dla danych wykresu
   const [chartData, setChartData] = useState([]);
-  
   const { setHasNewBlock } = useOutletContext();
   const viewportRef = useRef(null);
 
@@ -52,10 +48,9 @@ export function Dashboard() {
     return () => source.close();
   }, [setHasNewBlock]);
 
-  // 2. Automatyczne pobieranie detali dla 10 ostatnich bloków (do wykresu)
+  // pobieranie danych wykresu
   useEffect(() => {
     const fetchChartData = async () => {
-      // Bierzemy 10 najnowszych bloków, ale odwracamy kolejność, żeby na wykresie czas płynął od lewej do prawej
       const top10 = [...blocks].sort((a, b) => b.id - a.id).slice(0, 10).reverse();
       
       if (top10.length === 0) return;
@@ -63,7 +58,7 @@ export function Dashboard() {
       const newChartData = [];
       
       for (let block of top10) {
-        // Sprawdzamy czy już pobraliśmy dane dla tego bloku, by nie obciążać backendu
+
         const existingData = chartData.find(d => d.block === block.id);
         
         if (existingData) {
@@ -75,7 +70,7 @@ export function Dashboard() {
             newChartData.push({
               block: block.id,
               name: `#${block.id}`,
-              gasMean: data.gasPricesMean / 1_000_000_000 // Konwersja na Gwei
+              gasMean: data.gasPricesMean / 1_000_000_000
             });
           } catch (error) {
             console.error("Błąd pobierania danych do wykresu:", error);
@@ -87,8 +82,7 @@ export function Dashboard() {
     };
 
     fetchChartData();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [blocks]); // Wywoła się za każdym razem gdy wpadnie nowy blok z SSE
+  }, [blocks]);
 
   // 3. Pobieranie po kliknięciu na blok w terminalu
   const handleBlockClick = async (blockId) => {
@@ -115,7 +109,7 @@ export function Dashboard() {
     <Box style={{ height: '100vh', backgroundColor: 'var(--mantine-color-black-1)' }}>
       <Grid gutter={0} style={{ margin: 0 }}>
         
-        {/* LEWA KOLUMNA - TERMINAL */}
+        {/* terminal */}
         <Grid.Col span={{ base: 12, md: 6 }}>
           <Paper
             withBorder radius={0} p="md"
@@ -184,33 +178,12 @@ export function Dashboard() {
           </Paper>
         </Grid.Col>
 
-        {/* PRAWA KOLUMNA - KAFELKI + WYKRES */}
+        {/* prawa czesc */}
         <Grid.Col span={{ base: 12, md: 6 }}>
           <Box style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
-            
-            {/* GÓRNY RZĄD - Kafelki informacyjne */}
-            <Grid gutter={0} style={{ height: '25vh' }}>
-              {smallItems.map((item) => (
-                <Grid.Col span={6} key={item.title}>
-                  <Paper
-                    withBorder radius={0} p="md"
-                    style={{
-                      height: '100%', display: 'flex', flexDirection: 'column',
-                      alignItems: 'center', justifyContent: 'center',
-                      backgroundColor: 'var(--mantine-color-body)',
-                      borderBottom: '1px solid var(--mantine-color-gray-3)',
-                      borderRight: '1px solid var(--mantine-color-gray-3)',
-                    }}
-                  >
-                    <item.icon size="2rem" color={`var(--mantine-color-${item.color}-6)`} stroke={1.5} />
-                    <Text fw={600} mt="sm" size="sm">{item.title}</Text>
-                    <Text size="xs" c="dimmed">STATUS: OK</Text>
-                  </Paper>
-                </Grid.Col>
-              ))}
-            </Grid>
+        
 
-            {/* DOLNY RZĄD - Wykres Liniowy */}
+            {/* wykres */}
             <Paper 
               withBorder radius={0} p="xl" 
               style={{ 
@@ -219,7 +192,7 @@ export function Dashboard() {
                 borderRight: '1px solid var(--mantine-color-gray-3)'
               }}
             >
-              <Text fw={700} size="sm" mb="lg">ŚREDNIA CENA GAZU (Gwei) - OSTATNIE 10 BLOKÓW</Text>
+              <Text fw={700} size="sm" mb="lg">TREND CENY GASU (GWEI)</Text>
               
               <Box style={{ height: 'calc(100% - 40px)', width: '100%' }}>
                 {chartData.length > 0 ? (
@@ -250,7 +223,7 @@ export function Dashboard() {
                       <Line 
                         type="monotone" 
                         dataKey="gasMean" 
-                        stroke="#E03131" // Kolor linii pasujący do stylu Mantine
+                        stroke="#E03131"
                         strokeWidth={3} 
                         dot={{ r: 4, fill: '#E03131', strokeWidth: 0 }} 
                         activeDot={{ r: 6 }} 
