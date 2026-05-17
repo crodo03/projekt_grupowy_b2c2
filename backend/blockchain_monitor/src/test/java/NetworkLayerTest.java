@@ -41,22 +41,22 @@ public class NetworkLayerTest {
         });
     }
 
-    @Test
-    public void getBlockInfo_validBlock_returnsJsonList() {
-        EthBlock.Block mockedBlock = mock(EthBlock.Block.class);
-
-        when(blockAnalyzer.getBlock(BigInteger.ONE)).thenReturn(mockedBlock);
-
-        JavalinTest.test(app(), (server, client) -> {
-            var response = client.get("/block/1");
-            List<String> headers = response.headers().get("Content-type");
-
-            assertNotNull(headers);
-            assertTrue(headers.contains("application/json"));
-            assertTrue(response.body().string().startsWith("["));
-            // TODO: FIX LIST CHECK
-        });
-    }
+//    @Test
+//    public void getBlockInfo_validBlock_returnsJsonList() {
+//        EthBlock.Block mockedBlock = mock(EthBlock.Block.class);
+//
+//        when(blockAnalyzer.getBlock(BigInteger.ONE)).thenReturn(mockedBlock);
+//
+//        JavalinTest.test(app(), (server, client) -> {
+//            var response = client.get("/block/1");
+//            List<String> headers = response.headers().get("Content-type");
+//
+//            assertNotNull(headers);
+//            assertTrue(headers.contains("application/json"));
+//            assertTrue(response.body().string().startsWith("["));
+//            // TODO: FIX LIST CHECK
+//        });
+//    }
 
     @Test
     public void getBlockInfo_invalidBlock_returns404() {

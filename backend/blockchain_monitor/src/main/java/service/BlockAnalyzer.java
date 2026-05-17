@@ -103,6 +103,7 @@ public class BlockAnalyzer {
                 .numberOfTransactions(block.getTransactions().size())
                 .blockHash(block.getHash())
                 .blockNumber(block.getNumber())
+                .fetchedAt(BlockResponse.getCurrentTime())
                 .build();
     }
 
