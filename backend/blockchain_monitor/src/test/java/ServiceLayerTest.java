@@ -3,6 +3,7 @@ import access.NodeConfig;
 import exceptions.GetBlockException;
 import network.dto.BlockResponse;
 import network.dto.BlockTransactionInfo;
+import network.dto.TransactionInfoResult;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.web3j.protocol.Web3j;
@@ -136,35 +137,166 @@ public class ServiceLayerTest {
     }
 
     @Test
+    public void getLatestBlocks_nullBlock_doesNotCallCallback() throws IOException {
+        when(mockEthBlockNumber.getBlockNumber()).thenReturn(BigInteger.ONE);
+        when(mockWeb3j.ethBlockNumber().send()).thenReturn(mockEthBlockNumber);
+        when(mockEthBlock.getBlock()).thenReturn(null);
+        when(mockWeb3j.ethGetBlockByNumber(any(), anyBoolean()).send()).thenReturn(mockEthBlock);
+
+        List<BlockResponse> received = new ArrayList<>();
+        List<CompletableFuture<BlockResponse>> futures = blockAnalyzer.getLatestBlocks(1, received::add);
+        CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+
+        assertTrue(received.isEmpty());
+    }
+
+    @Test
+    public void getLatestBlocks_exceptionThrown_doesNotCallCallback() throws IOException {
+        when(mockEthBlockNumber.getBlockNumber()).thenReturn(BigInteger.ONE);
+        when(mockWeb3j.ethBlockNumber().send()).thenReturn(mockEthBlockNumber);
+        when(mockWeb3j.ethGetBlockByNumber(any(), anyBoolean()).send())
+                .thenThrow(new RuntimeException("network error"));
+
+        List<BlockResponse> received = new ArrayList<>();
+        List<CompletableFuture<BlockResponse>> futures = blockAnalyzer.getLatestBlocks(1, received::add);
+        CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+
+        assertTrue(received.isEmpty());
+    }
+
+    @Test
     public void getTransactionInfo_mapsTransactionFieldsCorrectly() {
         var transactionObject = mock(EthBlock.TransactionObject.class);
-        when(transactionObject.getHash()).thenReturn("0xHash");
-        when(transactionObject.getTo()).thenReturn("0xTo");
-        when(transactionObject.getFrom()).thenReturn("0xFrom");
-        when(transactionObject.getValue()).thenReturn(BigInteger.ONE);
-        when(transactionObject.getGas()).thenReturn(BigInteger.TEN);
+        setTransactionObjectReturnValues(transactionObject);
 
         var transactionResult = mock(EthBlock.TransactionResult.class);
         when(transactionResult.get()).thenReturn(transactionObject);
-
         when(mockBlockBlock.getTransactions()).thenReturn(List.of(transactionResult));
-        List<BlockTransactionInfo> result = transactionAnalyzer.getTransactionInfo();
-        assertEquals(1, result.size());
 
-        BlockTransactionInfo info = result.getFirst();
+        TransactionAnalyzer analyzer = new TransactionAnalyzer(mockBlockBlock);
+        TransactionInfoResult result = analyzer.getTransactionInfo();
+
+        var transactionInfoList = result.getBlockTransactionInfoList();
+        assertEquals(1, transactionInfoList.size());
+
+        BlockTransactionInfo info = transactionInfoList.getFirst();
         assertAll(
-            () -> assertEquals("0xHash", info.getHash()),
-            () -> assertEquals("0xTo", info.getTo()),
-            () -> assertEquals("0xFrom", info.getFrom()),
-            () -> assertEquals(BigInteger.ONE, info.getValue()),
-            () -> assertEquals(BigInteger.TEN, info.getGas())
+                () -> assertEquals("0xHash", info.getHash()),
+                () -> assertEquals("0xTo", info.getTo()),
+                () -> assertEquals("0xFrom", info.getFrom()),
+                () -> assertEquals(BigInteger.ONE, info.getValue()),
+                () -> assertEquals(BigInteger.TEN, info.getGas()),
+                () -> assertEquals(BigInteger.TWO, info.getGasPrice())
         );
+
+        // mean of 2 and 2 = 2
+        assertEquals(BigInteger.valueOf(2), result.getGasPricesMean());
+    }
+
+    @Test
+    public void getTransactionInfo_calculatesMeanGasPrice() {
+        var transactionObject1 = mock(EthBlock.TransactionObject.class);
+        when(transactionObject1.getGasPrice()).thenReturn(BigInteger.TWO);
+        var transactionObject2 = mock(EthBlock.TransactionObject.class);
+        when(transactionObject2.getGasPrice()).thenReturn(BigInteger.valueOf(4));
+
+        setTransactionObjectReturnValues(transactionObject1);
+        setTransactionObjectReturnValues(transactionObject2);
+
+        var result1 = mock(EthBlock.TransactionResult.class);
+        var result2 = mock(EthBlock.TransactionResult.class);
+        when(result1.get()).thenReturn(transactionObject1);
+        when(result2.get()).thenReturn(transactionObject2);
+        when(mockBlockBlock.getTransactions()).thenReturn(List.of(result1, result2));
+
+        TransactionAnalyzer analyzer = new TransactionAnalyzer(mockBlockBlock);
+        TransactionInfoResult result = analyzer.getTransactionInfo();
+
+        // mean of 2 and 2 = 2
+        assertEquals(BigInteger.valueOf(2), result.getGasPricesMean());
     }
 
     @Test
     public void getTransactionInfo_emptyBlock_returnsEmptyList() {
         when(mockBlockBlock.getTransactions()).thenReturn(Collections.emptyList());
-        List<BlockTransactionInfo> result = transactionAnalyzer.getTransactionInfo();
+        TransactionInfoResult result = transactionAnalyzer.getTransactionInfo();
+        var transactionInfoList = result.getBlockTransactionInfoList();
+        assertTrue(transactionInfoList.isEmpty());
+    }
+
+    @Test
+    public void getTransactionInfo_nullGasPrice_doesNotThrow() {
+        var transactionObject = mock(EthBlock.TransactionObject.class);
+
+        // change gasPrice to null, set everything else to avoid NPE
+        setTransactionObjectReturnValues(transactionObject);
+        when(transactionObject.getGasPrice()).thenReturn(null);
+
+        var transactionResult = mock(EthBlock.TransactionResult.class);
+        when(transactionResult.get()).thenReturn(transactionObject);
+        when(mockBlockBlock.getTransactions()).thenReturn(List.of(transactionResult));
+
+        TransactionInfoResult result = transactionAnalyzer.getTransactionInfo();
+
+        assertEquals(BigInteger.ZERO, result.getGasPricesMean());
+    }
+
+    private void setTransactionObjectReturnValues(EthBlock.TransactionObject transactionObject) {
+        when(transactionObject.getHash()).thenReturn("0xHash");
+        when(transactionObject.getTo()).thenReturn("0xTo");
+        when(transactionObject.getFrom()).thenReturn("0xFrom");
+        when(transactionObject.getValue()).thenReturn(BigInteger.ONE);
+        when(transactionObject.getGas()).thenReturn(BigInteger.TEN);
+        when(transactionObject.getGasPrice()).thenReturn(BigInteger.TWO);
+    }
+
+    @Test
+    public void pollForNewBlocks_latestBlockIsTheSame_returnsEmptyList() throws IOException {
+        // same as the default value
+        when(mockEthBlockNumber.getBlockNumber()).thenReturn(BigInteger.ZERO);
+        when(mockWeb3j.ethBlockNumber().send()).thenReturn(mockEthBlockNumber);
+
+        List<BlockResponse> result = blockAnalyzer.pollForNewBlocks();
+
         assertTrue(result.isEmpty());
+    }
+
+    @Test
+    public void pollForNewBlocks_blockResponseIsNull_returnsEmptyList() throws IOException {
+        when(mockEthBlockNumber.getBlockNumber()).thenReturn(BigInteger.ONE);
+        when(mockWeb3j.ethBlockNumber().send()).thenReturn(mockEthBlockNumber);
+
+        when(mockEthBlock.getBlock()).thenReturn(null);
+        when(mockWeb3j.ethGetBlockByNumber(any(), anyBoolean()).send()).thenReturn(mockEthBlock);
+
+        List<BlockResponse> result = blockAnalyzer.pollForNewBlocks();
+        assertTrue(result.isEmpty());
+    }
+
+    @Test
+    public void pollForNewBlocks_happyPath_returnsList() throws IOException {
+        when(mockEthBlockNumber.getBlockNumber()).thenReturn(BigInteger.ONE);
+        when(mockWeb3j.ethBlockNumber().send()).thenReturn(mockEthBlockNumber);
+
+        when(mockEthBlock.getBlock()).thenReturn(mockBlockBlock);
+        when(mockWeb3j.ethGetBlockByNumber(any(), anyBoolean()).send()).thenReturn(mockEthBlock);
+        when(mockBlockBlock.getTransactions()).thenReturn(Collections.emptyList());
+
+        List<BlockResponse> result = blockAnalyzer.pollForNewBlocks();
+        assertEquals(1, result.size());
+    }
+
+    @Test
+    public void pollForNewBlocks_noNewBlockSinceLastCall_returnsEmptyList() throws IOException {
+        when(mockEthBlockNumber.getBlockNumber()).thenReturn(BigInteger.ONE);
+        when(mockWeb3j.ethBlockNumber().send()).thenReturn(mockEthBlockNumber);
+
+        when(mockEthBlock.getBlock()).thenReturn(mockBlockBlock);
+        when(mockWeb3j.ethGetBlockByNumber(any(), anyBoolean()).send()).thenReturn(mockEthBlock);
+        when(mockBlockBlock.getTransactions()).thenReturn(Collections.emptyList());
+
+        blockAnalyzer.pollForNewBlocks();
+        List<BlockResponse> result = blockAnalyzer.pollForNewBlocks();
+        assertEquals(0, result.size());
     }
 }

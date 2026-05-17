@@ -54,6 +54,7 @@ public class NetworkLayerTest {
             assertNotNull(headers);
             assertTrue(headers.contains("application/json"));
             assertTrue(response.body().string().startsWith("["));
+            // TODO: FIX LIST CHECK
         });
     }
 

@@ -1,5 +1,6 @@
 package service;
 
+import lombok.extern.slf4j.Slf4j;
 import network.dto.BlockTransactionInfo;
 import network.dto.TransactionInfoResult;
 import org.web3j.protocol.core.methods.response.EthBlock;
@@ -7,7 +8,9 @@ import org.web3j.protocol.core.methods.response.EthBlock;
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
+@Slf4j
 public class TransactionAnalyzer {
     private final EthBlock.Block block;
     private final List<BlockTransactionInfo> transactionInfoList = new ArrayList<>();
@@ -37,14 +40,22 @@ public class TransactionAnalyzer {
                     gasPrice
             ));
         });
-        BigInteger gasPricesMean = sumGasPrices(gasPrices).divide(BigInteger.valueOf(gasPrices.size()));
+
+        List<BigInteger> validGasPrices = gasPrices.stream()
+                .filter(Objects::nonNull)
+                .toList();
+
+        if(validGasPrices.isEmpty()) {
+            return new TransactionInfoResult(transactionInfoList, BigInteger.ZERO);
+        }
+
+        BigInteger gasPricesMean = sumGasPrices(validGasPrices)
+                .divide(BigInteger.valueOf(validGasPrices.size()));
+
         return new TransactionInfoResult(transactionInfoList, gasPricesMean);
     }
 
     private BigInteger sumGasPrices(List<BigInteger> gasPrices) {
-        if(gasPrices == null) {
-            return BigInteger.ZERO;
-        }
         return gasPrices
                 .stream()
                 .reduce(

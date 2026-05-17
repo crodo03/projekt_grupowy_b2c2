@@ -45,12 +45,10 @@ public class BlockAnalyzer {
         List<CompletableFuture<BlockResponse>> futures = new ArrayList<>();
         BigInteger blockNumber = getLatestBlockNumber();
 
-        // TODO: FREEZES ON LOW NUMBERS LIKE 5. CHECK
         for(int i = 0; i < numberOfBlocks; i++) {
             BigInteger finalBlockNumber = blockNumber;
 
             CompletableFuture<BlockResponse> future = CompletableFuture
-                    // TODO: WHEN GET BLOCK METHOD FAILS, FETCHES DIFFERENT NUMBER OF BLOCKS
                     .supplyAsync(() -> getBlockResponseObject(finalBlockNumber), executor)
                     .thenApply(block -> {
                         if(block == null) {
@@ -60,7 +58,7 @@ public class BlockAnalyzer {
                         if(sentBlocks.add(block.getBlockNumber())) {
                             onBlockReady.accept(block);
                         }
-                        currentBlocks.add(block);
+                        addBlockToQueue(block);
                         return block;
                     })
                     .exceptionally(e -> {
@@ -92,6 +90,10 @@ public class BlockAnalyzer {
 
     public BlockResponse getBlockResponseObject(BigInteger blockNumber)  {
         EthBlock.Block block = getBlock(blockNumber);
+        if (block == null) {
+            log.warn("block {} is null", blockNumber);
+            return null;
+        }
 
         return BlockResponse.builder()
                 .numberOfTransactions(block.getTransactions().size())
@@ -103,13 +105,15 @@ public class BlockAnalyzer {
     public List<BlockResponse> pollForNewBlocks() {
         BigInteger latest = getLatestBlockNumber();
         if(latest.compareTo(latestKnownBlock) <= 0) {
+            log.info("-------- latest compare to latest known issue");
             return Collections.emptyList();
         }
 
         latestKnownBlock = latest;
         BlockResponse newBlock = getBlockResponseObject(latest);
         if(newBlock == null) {
-            log.warn("count not fetch block number {}", latest);
+            log.warn("could not fetch block number {}", latest);
+            return Collections.emptyList();
         }
 
         if(!currentBlocks.contains(newBlock)) {
