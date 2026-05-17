@@ -22,7 +22,7 @@ public class ReportFileCreator {
         int totalTransactions = blockAnalyzer.getTotalNumberOfTransactions();
         String generatedAtString = String.valueOf(generatedAt);
         String filename = generatedAtString + "-report.csv";
-        try (CSVWriter writer = new CSVWriter(new FileWriter(filename))) {
+        try (CSVWriter writer = new CSVWriter(new FileWriter("backend/blockchain_monitor/" + filename))) {
             writer.writeNext(new String[]{"# SESSION SUMMARY"}, false);
             writer.writeNext(new String[]{
                     "generated_at", "total_blocks", "failed_blocks", "successful_blocks",

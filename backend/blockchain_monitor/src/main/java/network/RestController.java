@@ -78,7 +78,7 @@ public class RestController {
         try {
             context.contentType("text/csv");
             context.header("Content-Disposition\", \"attachment; filename=report.csv");
-            context.result(new FileInputStream(file));
+            context.result(new FileInputStream("backend/blockchain_monitor/" + file));
         } catch(FileNotFoundException e) {
             context.status(404).result("report file not found");
         }
