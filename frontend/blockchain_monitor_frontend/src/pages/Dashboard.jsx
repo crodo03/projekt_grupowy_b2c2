@@ -6,74 +6,101 @@ import { useEffect, useState, useRef } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
-const smallItems = [
-]
-
 export function Dashboard() {
   const [blocks, setBlock] = useState([]);
+  const [pendingBlocks, setPendingBlocks] = useState([]);
   const [selectedBlock, setSelectedBlock] = useState(null);
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(false);
   const [chartData, setChartData] = useState([]);
-  const { setHasNewBlock } = useOutletContext();
+  const { setHasNewBlock, refreshKey } = useOutletContext();
   const viewportRef = useRef(null);
+  const chartCacheRef = useRef({});
 
-  // 1. Odbieranie bloków przez SSE
+  // odbieranie bloków przez sse
   useEffect(() => {
     const source = new EventSource("http://localhost:8080/sse");
 
+    // odbieranie bloków pojedyczo
     source.addEventListener('block', (e) => {
       const block = JSON.parse(e.data);
-      const time = new Date().toLocaleTimeString();
       
       setBlock((prev) => {
         if (prev.find(b => b.id === block.blockNumber)) return prev;
         
         const newLog = {
           id: block.blockNumber,
-          text: `[${time}] BLOK #${block.blockNumber} | TXs: ${block.numberOfTransactions} | Hash: ${block.blockHash}`
+          time: block.fetchedAt,
+          text: `[${block.fetchedAt}] BLOK #${block.blockNumber} | TXs: ${block.numberOfTransactions} | Hash: ${block.blockHash}`
         };
-        return [...prev.slice(-99), newLog].sort((a, b) => b.id - a.id);
+        return [...prev.slice(-100), newLog].sort((a, b) => a.id - b.id);
       });
     });
 
-    source.addEventListener('done', () => console.log('Synchronizacja zakończona'));
+    source.addEventListener('done', () => {
+      console.log('🏁 [SSE] Synchronizacja początkowa zakończona');
+    });
     
-    source.addEventListener('new_block', () => {
-      console.log('Nowy blok dostępny!');
+    // odbieranie paczki po refresh
+    source.addEventListener('updated_blocks', (e) => {
+      const parsedArray = JSON.parse(e.data);
+      console.log(`🔔 [SSE] Otrzymano nową paczkę (${parsedArray.length} bloków) w tle. Czeka na odświeżenie.`); 
+      
+      const formattedBlocks = parsedArray.map(block => ({
+        id: block.blockNumber,
+        time: block.fetchedAt,
+        text: `[${block.fetchedAt}] BLOK #${block.blockNumber} | TXs: ${block.numberOfTransactions} | Hash: ${block.blockHash}`
+      })).sort((a, b) => a.id - b.id);
+
+      setPendingBlocks(formattedBlocks);
       setHasNewBlock(true);
     });
 
     source.onerror = () => source.close();
-    return () => source.close();
-  }, [setHasNewBlock]);
+    
+    return () => {
+      source.close();
+    };
+  }, [setHasNewBlock]); 
+
+  useEffect(() => {
+    if (pendingBlocks) {
+      setBlock(pendingBlocks); 
+      setPendingBlocks(null); 
+    }
+  }, [refreshKey]);
+
 
   // pobieranie danych wykresu
   useEffect(() => {
     const fetchChartData = async () => {
-      const top10 = [...blocks].sort((a, b) => b.id - a.id).slice(0, 10).reverse();
+      const top10 = [...blocks].sort((a, b) => b.id - a.id).slice(0, 15).reverse();
       
       if (top10.length === 0) return;
 
       const newChartData = [];
       
       for (let block of top10) {
-
-        const existingData = chartData.find(d => d.block === block.id);
-        
-        if (existingData) {
-          newChartData.push(existingData);
+        if (chartCacheRef.current[block.id]) {
+          newChartData.push(chartCacheRef.current[block.id]);
         } else {
           try {
             const response = await fetch(`http://localhost:8080/block/${block.id}`);
             const data = await response.json();
-            newChartData.push({
+
+            console.log(`[DEBUG] Pobrane dane dla bloku ${block.id}:`, data); 
+
+            const gas = data.gasPricesMean ? (data.gasPricesMean / 1_000_000_000) : 0;
+            const newDataPoint = {
               block: block.id,
-              name: `#${block.id}`,
-              gasMean: data.gasPricesMean / 1_000_000_000
-            });
+              time: block.time,
+              gasMean: gas
+            };
+            
+            chartCacheRef.current[block.id] = newDataPoint;
+            newChartData.push(newDataPoint);
           } catch (error) {
-            console.error("Błąd pobierania danych do wykresu:", error);
+            console.error(`Błąd pobierania danych do wykresu dla bloku ${block.id}:`, error);
           }
         }
       }
@@ -84,7 +111,7 @@ export function Dashboard() {
     fetchChartData();
   }, [blocks]);
 
-  // 3. Pobieranie po kliknięciu na blok w terminalu
+  // pobieranie po kliknięciu na blok w terminalu
   const handleBlockClick = async (blockId) => {
     setSelectedBlock(blockId);
     setLoading(true);
@@ -106,84 +133,123 @@ export function Dashboard() {
   }, [blocks, selectedBlock]);
 
   return (
-    <Box style={{ height: '100vh', backgroundColor: 'var(--mantine-color-black-1)' }}>
-      <Grid gutter={0} style={{ margin: 0 }}>
-        
-        {/* terminal */}
-        <Grid.Col span={{ base: 12, md: 6 }}>
-          <Paper
-            withBorder radius={0} p="md"
-            style={{
-              height: '100vh', display: 'flex', flexDirection: 'column',
-              backgroundColor: 'var(--mantine-color-body)',
-              borderRight: '1px solid var(--mantine-color-gray-3)',
-            }}
-          >
-            <Box style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '15px' }}>
-              <Box style={{ display: 'flex', alignItems: 'center' }}>
-                <IconTerminal size="1.2rem" style={{ marginRight: '10px' }} />
-                <Text fw={700} size="sm">
-                  {selectedBlock ? `TRANSAKCJE BLOKU #${selectedBlock}` : 'TERMINAL OPERACYJNY'}
-                </Text>
-              </Box>
-              
-              {selectedBlock && (
-                <ActionIcon variant="subtle" color="gray" onClick={() => setSelectedBlock(null)}>
-                  <IconX size="1.2rem" />
-                </ActionIcon>
-              )}
+    <Box style={{ height: '100vh', backgroundColor: 'var(--mantine-color-black-1)', position: 'relative' }}>
+      
+      {selectedBlock ? (
+        <Paper
+          withBorder
+          radius={0}
+          p="md"
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            width: '100%',
+            height: '100vh',
+            display: 'flex',
+            flexDirection: 'column',
+            backgroundColor: 'var(--mantine-color-body)',
+            zIndex: 10
+          }}
+        >
+
+          <Box style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '15px' }}>
+            <Box style={{ display: 'flex', alignItems: 'center' }}>
+              <IconTerminal size="1.2rem" style={{ marginRight: '10px' }} />
+              <Text fw={700} size="sm">
+                SZCZEGÓŁOWE TRANSAKCJE BLOKU #{selectedBlock}
+              </Text>
             </Box>
             
-            <Box style={{ flex: 1, backgroundColor: '#1A1B1E', borderRadius: '4px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-              <ScrollArea viewportRef={viewportRef} style={{ flex: 1 }} p="md">
-                {selectedBlock ? (
-                  loading ? (
-                    <Center style={{ height: '200px' }}><Loader color="blue" /></Center>
-                  ) : (
-                    <Table variant="simple" verticalSpacing="xs" style={{ color: '#ced4da', fontSize: '11px' }}>
-                      <Table.Thead>
-                        <Table.Tr>
-                          <Table.Th style={{ color: '#888' }}>Hash</Table.Th>
-                          <Table.Th style={{ color: '#888' }}>Wartość</Table.Th>
-                        </Table.Tr>
-                      </Table.Thead>
-                      <Table.Tbody>
-                        {transactions.map((tx, idx) => (
-                          <Table.Tr key={idx}>
-                            <Table.Td style={{ fontFamily: 'monospace' }}>{tx.hash?.substring(0, 15)}...</Table.Td>
-                            <Table.Td>{tx.value} ETH</Table.Td>
-                          </Table.Tr>
-                        ))}
-                      </Table.Tbody>
-                    </Table>
-                  )
-                ) : (
-                  blocks.map((log, index) => (
-                    <Text
-                      key={index}
-                      onClick={() => handleBlockClick(log.id)}
-                      style={{ 
-                        fontFamily: 'monospace', fontSize: '12px', color: '#40C057', 
-                        cursor: 'pointer', padding: '4px 0', whiteSpace: 'nowrap'
-                      }}
-                      className="log-item"
-                    >
-                      {log.text}
-                    </Text>
-                  ))
-                )}
-                {!selectedBlock && blocks.length === 0 && <Text size="xs" c="dimmed">[SYSTEM] Oczekiwanie na dane...</Text>}
-              </ScrollArea>
-            </Box>
-          </Paper>
-        </Grid.Col>
 
-        {/* prawa czesc */}
-        <Grid.Col span={{ base: 12, md: 6 }}>
-          <Box style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
-        
+            <ActionIcon variant="subtle" color="gray" size="lg" onClick={() => setSelectedBlock(null)}>
+              <IconX size="1.4rem" />
+            </ActionIcon>
+          </Box>
+          
+          <Box style={{ flex: 1, backgroundColor: '#1A1B1E', borderRadius: '4px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+            <ScrollArea style={{ flex: 1 }} p="md">
+              {loading ? (
+                <Center style={{ height: '100%' }}><Loader color="blue" /></ Center>
+              ) : (
+                // tabela transakcji
+                <Table variant="simple" verticalSpacing="xs" style={{ color: '#ced4da', fontSize: '11px' }}>
+                  <Table.Thead>
+                    <Table.Tr>
+                      <Table.Th style={{ color: '#888' }}>Hash TX</Table.Th>
+                      <Table.Th style={{ color: '#888' }}>Od (Nadawca)</Table.Th>
+                      <Table.Th style={{ color: '#888' }}>Do (Odbiorca)</Table.Th>
+                      <Table.Th style={{ color: '#888' }}>Wartość</Table.Th>
+                      <Table.Th style={{ color: '#888' }}>Zużycie Gasu</Table.Th>
+                    </Table.Tr>
+                  </Table.Thead>
+                  <Table.Tbody>
+                    {transactions.map((tx, idx) => (
+                      <Table.Tr key={idx}>
+                        <Table.Td style={{ fontFamily: 'monospace', color: '#4dabf7' }}>
+                          {tx.hash?.substring(0, 15)}...
+                        </Table.Td>
+                        <Table.Td style={{ fontFamily: 'monospace' }}>
+                          {tx.from?.substring(0, 12)}...
+                        </Table.Td>
+                        <Table.Td style={{ fontFamily: 'monospace' }}>
+                          {tx.to?.substring(0, 12)}...
+                        </Table.Td>
+                        <Table.Td style={{ fontWeight: 600, color: '#fcc419' }}>
+                          {tx.value} ETH
+                        </Table.Td>
+                        <Table.Td>
+                          {tx.gasUsed || tx.gas}
+                        </Table.Td>
+                      </Table.Tr>
+                    ))}
+                  </Table.Tbody>
+                </Table>
+              )}
+            </ScrollArea>
+          </Box>
+        </Paper>
+      ) : (
+        // widok konsola + wykres
+        <Grid gutter={0} style={{ margin: 0 }}>
+          
+          <Grid.Col span={{ base: 12, md: 6 }}>
+            <Paper
+              withBorder radius={0} p="md"
+              style={{
+                height: '100vh', display: 'flex', flexDirection: 'column',
+                backgroundColor: 'var(--mantine-color-body)',
+                borderRight: '1px solid var(--mantine-color-gray-3)',
+              }}
+            >
+              <Box style={{ display: 'flex', alignItems: 'center', marginBottom: '15px' }}>
+                  <IconTerminal size="1.2rem" style={{ marginRight: '10px' }} />
+                  <Text fw={700} size="sm">TERMINAL OPERACYJNY</Text>
+              </Box>
+              
+              <Box style={{ flex: 1, backgroundColor: '#1A1B1E', borderRadius: '4px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                <ScrollArea viewportRef={viewportRef} style={{ flex: 1 }} p="md">
+                    {blocks.map((log, index) => (
+                      <Text
+                        key={index}
+                        onClick={() => handleBlockClick(log.id)}
+                        style={{ 
+                          fontFamily: 'monospace', fontSize: '12px', color: '#40C057', 
+                          cursor: 'pointer', padding: '4px 0', whiteSpace: 'nowrap'
+                        }}
+                        className="log-item"
+                      >
+                        {log.text}
+                      </Text>
+                    ))}
+                  {!selectedBlock && blocks.length === 0 && <Text size="xs" c="dimmed">[SYSTEM] Oczekiwanie na dane...</Text>}
+                </ScrollArea>
+              </Box>
+            </Paper>
+          </Grid.Col>
 
-            {/* wykres */}
+          <Grid.Col span={{ base: 12, md: 6 }}>
+
             <Paper 
               withBorder radius={0} p="xl" 
               style={{ 
@@ -200,7 +266,7 @@ export function Dashboard() {
                     <LineChart data={chartData} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#444" opacity={0.5} vertical={false} />
                       <XAxis 
-                        dataKey="name" 
+                        dataKey="time" 
                         stroke="#888" 
                         fontSize={11} 
                         tickMargin={10} 
@@ -218,6 +284,8 @@ export function Dashboard() {
                       <Tooltip 
                         contentStyle={{ backgroundColor: '#1A1B1E', border: '1px solid #333', borderRadius: '4px' }}
                         itemStyle={{ color: '#E03131', fontWeight: 600 }}
+                        labelStyle={{ color: '#888', marginBottom: '5px' }} 
+                        labelFormatter={(label) => `Czas: ${label}`} 
                         formatter={(value) => [`${value.toFixed(4)} Gwei`, 'Średnia cena']}
                       />
                       <Line 
@@ -236,11 +304,9 @@ export function Dashboard() {
                 )}
               </Box>
             </Paper>
-
-          </Box>
-        </Grid.Col>
-
-      </Grid>
+          </Grid.Col>
+        </Grid>
+      )}
       
       <style>{`
         .log-item:hover { background-color: rgba(64, 192, 87, 0.1); }
