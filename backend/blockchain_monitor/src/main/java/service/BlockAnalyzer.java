@@ -23,6 +23,8 @@ public class BlockAnalyzer {
     private final Deque<BlockResponse> currentBlocks = new ConcurrentLinkedDeque<>();
     private BigInteger latestKnownBlock = BigInteger.ZERO;
     private final int maxQueueSize = 10;
+    private int totalNumberOfBlocks = 0;
+    private int totalNumberOfTransactions = 0;
 
     public BlockAnalyzer(Web3j web3j) {
         this.web3j = web3j;
@@ -53,12 +55,14 @@ public class BlockAnalyzer {
                     .thenApply(block -> {
                         if(block == null) {
                             log.error("block is null, skipping");
+                            failedBlockNumbers.add(finalBlockNumber);
                             return null;
                         }
                         if(sentBlocks.add(block.getBlockNumber())) {
                             onBlockReady.accept(block);
                         }
                         addBlockToQueue(block);
+                        totalNumberOfBlocks += 1;
                         return block;
                     })
                     .exceptionally(e -> {
@@ -105,7 +109,6 @@ public class BlockAnalyzer {
     public List<BlockResponse> pollForNewBlocks() {
         BigInteger latest = getLatestBlockNumber();
         if(latest.compareTo(latestKnownBlock) <= 0) {
-            log.info("-------- latest compare to latest known issue");
             return Collections.emptyList();
         }
 
@@ -113,11 +116,13 @@ public class BlockAnalyzer {
         BlockResponse newBlock = getBlockResponseObject(latest);
         if(newBlock == null) {
             log.warn("could not fetch block number {}", latest);
+            failedBlockNumbers.add(latest);
             return Collections.emptyList();
         }
 
         if(!currentBlocks.contains(newBlock)) {
             addBlockToQueue(newBlock);
+            totalNumberOfBlocks += 1;
             log.info("added {} to queue", newBlock);
             return getQueueAsList();
         }
@@ -126,6 +131,7 @@ public class BlockAnalyzer {
 
     private void addBlockToQueue(BlockResponse block) {
         currentBlocks.addFirst(block);
+        totalNumberOfTransactions += block.getNumberOfTransactions();
         if(currentBlocks.size() > maxQueueSize) {
             currentBlocks.removeLast();
         }

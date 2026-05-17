@@ -24,6 +24,7 @@ public class RestClient {
             // routes
             config.routes.sse("/sse", restController::sendLatestBlocks);
             config.routes.get("/block/{block-number}", restController::sendBlockInfo);
+            config.routes.get("/csv", restController::serveCsvFile);
 
         }).start(8080);
     }

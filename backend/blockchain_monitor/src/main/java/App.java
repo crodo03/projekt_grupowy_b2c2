@@ -5,6 +5,7 @@ import service.BlockAnalyzer;
 
 class App {
     public static void main(String[] args) {
+
         NodeConfig config = new NodeConfig();
 
         try(BlockchainClient client = new BlockchainClient(config)) {

@@ -6,9 +6,13 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import network.dto.BlockResponse;
 import org.web3j.protocol.core.methods.response.EthBlock;
+import report.ReportFileCreator;
 import service.BlockAnalyzer;
 import service.TransactionAnalyzer;
 
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.math.BigInteger;
 import java.time.Duration;
 import java.time.Instant;
@@ -66,7 +70,21 @@ public class RestController {
         context.json(transactionInfoResult).status(200);
     }
 
-    public void startPolling() {
+    public void serveCsvFile(Context context) {
+        ReportFileCreator reportFileCreator = new ReportFileCreator(blockAnalyzer);
+        String filename = reportFileCreator.createCSVFile();
+
+        File file = new File(filename);
+        try {
+            context.contentType("text/csv");
+            context.header("Content-Disposition\", \"attachment; filename=report.csv");
+            context.result(new FileInputStream(file));
+        } catch(FileNotFoundException e) {
+            context.status(404).result("report file not found");
+        }
+    }
+
+    private void startPolling() {
         // not connected yet or never got any blocks
         if(sseClient == null) {
             log.info("sse client null");
