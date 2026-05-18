@@ -35,7 +35,7 @@ public class RestController {
 
         Instant start = Instant.now();
         var futures = blockAnalyzer.getLatestBlocks(
-                10,
+                100,
                 block -> sseClient.sendEvent("block", block)
         );
 

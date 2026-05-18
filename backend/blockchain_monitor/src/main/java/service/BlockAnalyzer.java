@@ -22,7 +22,7 @@ public class BlockAnalyzer {
     private final List<BigInteger> failedBlockNumbers = new ArrayList<>();
     private final Deque<BlockResponse> currentBlocks = new ConcurrentLinkedDeque<>();
     private BigInteger latestKnownBlock = BigInteger.ZERO;
-    private final int maxQueueSize = 10;
+    private final int maxQueueSize = 100;
     private int totalNumberOfBlocks = 0;
     private int totalNumberOfTransactions = 0;
 
@@ -42,7 +42,7 @@ public class BlockAnalyzer {
     }
 
     public List<CompletableFuture<BlockResponse>> getLatestBlocks(int numberOfBlocks, Consumer<BlockResponse> onBlockReady) {
-        ExecutorService executor = Executors.newFixedThreadPool(2);
+        ExecutorService executor = Executors.newFixedThreadPool(10);
         Set<BigInteger> sentBlocks = ConcurrentHashMap.newKeySet();
         List<CompletableFuture<BlockResponse>> futures = new ArrayList<>();
         BigInteger blockNumber = getLatestBlockNumber();

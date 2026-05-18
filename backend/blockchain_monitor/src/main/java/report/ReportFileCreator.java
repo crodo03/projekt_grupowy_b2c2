@@ -7,6 +7,7 @@ import service.BlockAnalyzer;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 
 @RequiredArgsConstructor
@@ -20,8 +21,11 @@ public class ReportFileCreator {
         int successfulBlocks = totalBlocks - failedBlocks;
         double successRate = failedBlocks == 0 ? 100 : ((double) successfulBlocks / totalBlocks) * 100;
         int totalTransactions = blockAnalyzer.getTotalNumberOfTransactions();
-        String generatedAtString = String.valueOf(generatedAt);
+
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss");
+        String generatedAtString = generatedAt.format(formatter);
         String filename = generatedAtString + "-report.csv";
+
         try (CSVWriter writer = new CSVWriter(new FileWriter("backend/blockchain_monitor/" + filename))) {
             writer.writeNext(new String[]{"# SESSION SUMMARY"}, false);
             writer.writeNext(new String[]{
