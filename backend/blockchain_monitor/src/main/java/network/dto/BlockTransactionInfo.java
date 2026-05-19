@@ -2,10 +2,12 @@ package network.dto;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 
 import java.math.BigInteger;
 
 @AllArgsConstructor
+@NoArgsConstructor
 @Getter
 public class BlockTransactionInfo {
     private String hash;
@@ -13,4 +15,5 @@ public class BlockTransactionInfo {
     private String from;
     private BigInteger value;
     private BigInteger gas;
+    private BigInteger gasPrice;
 }

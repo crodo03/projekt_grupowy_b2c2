@@ -1,0 +1,16 @@
+package network.dto;
+
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.math.BigInteger;
+import java.util.List;
+
+@Data
+@AllArgsConstructor
+@NoArgsConstructor
+public class TransactionInfoResult {
+    List<BlockTransactionInfo> blockTransactionInfoList;
+    BigInteger gasPricesMean;
+}

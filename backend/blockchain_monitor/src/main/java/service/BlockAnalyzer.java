@@ -11,13 +11,9 @@ import org.web3j.protocol.core.methods.response.EthBlockNumber;
 
 import java.io.IOException;
 import java.math.BigInteger;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Set;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.*;
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 
 @Getter
@@ -25,6 +21,11 @@ import java.util.function.Consumer;
 public class BlockAnalyzer {
     private final Web3j web3j;
     private final List<BigInteger> failedBlockNumbers = new ArrayList<>();
+    private final Deque<BlockResponse> currentBlocks = new ConcurrentLinkedDeque<>();
+    private BigInteger latestKnownBlock = BigInteger.ZERO;
+    private final int maxQueueSize = 100;
+    private final AtomicInteger totalNumberOfBlocks = new AtomicInteger(0);
+    private final AtomicInteger totalNumberOfTransactions = new AtomicInteger(0);
 
     public BlockAnalyzer(Web3j web3j) {
         this.web3j = web3j;
@@ -47,21 +48,22 @@ public class BlockAnalyzer {
         List<CompletableFuture<BlockResponse>> futures = new ArrayList<>();
         BigInteger blockNumber = getLatestBlockNumber();
 
-        // TODO: FREEZES ON LOW NUMBERS LIKE 5. CHECK
         for(int i = 0; i < numberOfBlocks; i++) {
             BigInteger finalBlockNumber = blockNumber;
 
             CompletableFuture<BlockResponse> future = CompletableFuture
-                    // TODO: WHEN GET BLOCK METHOD FAILS, FETCHES DIFFERENT NUMBER OF BLOCKS
                     .supplyAsync(() -> getBlockResponseObject(finalBlockNumber), executor)
                     .thenApply(block -> {
                         if(block == null) {
                             log.error("block is null, skipping");
+                            failedBlockNumbers.add(finalBlockNumber);
                             return null;
                         }
                         if(sentBlocks.add(block.getBlockNumber())) {
                             onBlockReady.accept(block);
                         }
+                        addBlockToQueue(block);
+                        totalNumberOfBlocks.addAndGet(1);
                         return block;
                     })
                     .exceptionally(e -> {
@@ -72,6 +74,7 @@ public class BlockAnalyzer {
             futures.add(future);
             blockNumber = blockNumber.subtract(BigInteger.ONE);
         }
+        latestKnownBlock = blockNumber;
         return futures;
     }
 
@@ -92,11 +95,51 @@ public class BlockAnalyzer {
 
     public BlockResponse getBlockResponseObject(BigInteger blockNumber)  {
         EthBlock.Block block = getBlock(blockNumber);
+        if (block == null) {
+            log.warn("block {} is null", blockNumber);
+            return null;
+        }
 
         return BlockResponse.builder()
                 .numberOfTransactions(block.getTransactions().size())
                 .blockHash(block.getHash())
                 .blockNumber(block.getNumber())
+                .fetchedAt(BlockResponse.getCurrentTime())
                 .build();
+    }
+
+    public List<BlockResponse> pollForNewBlocks() {
+        BigInteger latest = getLatestBlockNumber();
+        if(latest.compareTo(latestKnownBlock) <= 0) {
+            return Collections.emptyList();
+        }
+
+        latestKnownBlock = latest;
+        BlockResponse newBlock = getBlockResponseObject(latest);
+        if(newBlock == null) {
+            log.warn("could not fetch block number {}", latest);
+            failedBlockNumbers.add(latest);
+            return Collections.emptyList();
+        }
+
+        if(!currentBlocks.contains(newBlock)) {
+            addBlockToQueue(newBlock);
+            totalNumberOfBlocks.addAndGet(1);
+            log.info("added {} to queue", newBlock);
+            return getQueueAsList();
+        }
+        return Collections.emptyList();
+    }
+
+    private void addBlockToQueue(BlockResponse block) {
+        currentBlocks.addFirst(block);
+        totalNumberOfTransactions.addAndGet(block.getNumberOfTransactions());
+        if(currentBlocks.size() > maxQueueSize) {
+            currentBlocks.removeLast();
+        }
+    }
+
+    public List<BlockResponse> getQueueAsList() {
+        return new ArrayList<>(currentBlocks);
     }
 }
