@@ -16,11 +16,11 @@ public class ReportFileCreator {
 
     public String createCSVFile() {
         LocalDateTime generatedAt = LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS);
-        int totalBlocks = blockAnalyzer.getTotalNumberOfBlocks();
+        int totalBlocks = blockAnalyzer.getTotalNumberOfBlocks().get();
         int failedBlocks = blockAnalyzer.getFailedBlockNumbers().size();
         int successfulBlocks = totalBlocks - failedBlocks;
         double successRate = failedBlocks == 0 ? 100 : ((double) successfulBlocks / totalBlocks) * 100;
-        int totalTransactions = blockAnalyzer.getTotalNumberOfTransactions();
+        int totalTransactions = blockAnalyzer.getTotalNumberOfTransactions().get();
 
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss");
         String generatedAtString = generatedAt.format(formatter);

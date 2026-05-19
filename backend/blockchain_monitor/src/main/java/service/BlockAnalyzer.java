@@ -13,6 +13,7 @@ import java.io.IOException;
 import java.math.BigInteger;
 import java.util.*;
 import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 
 @Getter
@@ -23,8 +24,8 @@ public class BlockAnalyzer {
     private final Deque<BlockResponse> currentBlocks = new ConcurrentLinkedDeque<>();
     private BigInteger latestKnownBlock = BigInteger.ZERO;
     private final int maxQueueSize = 100;
-    private int totalNumberOfBlocks = 0;
-    private int totalNumberOfTransactions = 0;
+    private final AtomicInteger totalNumberOfBlocks = new AtomicInteger(0);
+    private final AtomicInteger totalNumberOfTransactions = new AtomicInteger(0);
 
     public BlockAnalyzer(Web3j web3j) {
         this.web3j = web3j;
@@ -62,7 +63,7 @@ public class BlockAnalyzer {
                             onBlockReady.accept(block);
                         }
                         addBlockToQueue(block);
-                        totalNumberOfBlocks += 1;
+                        totalNumberOfBlocks.addAndGet(1);
                         return block;
                     })
                     .exceptionally(e -> {
@@ -123,7 +124,7 @@ public class BlockAnalyzer {
 
         if(!currentBlocks.contains(newBlock)) {
             addBlockToQueue(newBlock);
-            totalNumberOfBlocks += 1;
+            totalNumberOfBlocks.addAndGet(1);
             log.info("added {} to queue", newBlock);
             return getQueueAsList();
         }
@@ -132,7 +133,7 @@ public class BlockAnalyzer {
 
     private void addBlockToQueue(BlockResponse block) {
         currentBlocks.addFirst(block);
-        totalNumberOfTransactions += block.getNumberOfTransactions();
+        totalNumberOfTransactions.addAndGet(block.getNumberOfTransactions());
         if(currentBlocks.size() > maxQueueSize) {
             currentBlocks.removeLast();
         }
