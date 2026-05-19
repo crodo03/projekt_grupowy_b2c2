@@ -1,20 +1,21 @@
-import { Outlet } from "react-router-dom"
-import { Header } from '/src/components/Header'
-// import { Navbar } from "../components/navbar";
-//import { useAuth } from '../context/AuthContext';
+import { useState } from 'react';
+import { Outlet } from 'react-router-dom';
+import { Header } from '../components/Header';
 
-function PublicLayout() {
-  //const { isAdmin } = useAuth();
+export default function PublicLayout() {
+  const [hasNewBlock, setHasNewBlock] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0); 
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', width: '100vw' }}>
-      
-      <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-        <main style={{ flex: 1, overflowY: 'auto' }}>
-          <Outlet />
-        </main>
-      </div>
-    </div>
+    <>
+      <Header 
+        hasNewBlock={hasNewBlock} 
+        setHasNewBlock={setHasNewBlock} 
+        triggerRefresh={() => setRefreshKey(prev => prev + 1)} 
+      />
+      <main>
+        <Outlet context={{ setHasNewBlock, refreshKey }} /> 
+      </main>
+    </>
   );
 }
-
-export default PublicLayout;
